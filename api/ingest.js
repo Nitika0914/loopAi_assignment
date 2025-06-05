@@ -40,28 +40,38 @@ setInterval(async () => {
 }, 5000);
 
 
-function handler(req, res){
-    res.status(200).json({messgae: "Everything is working fine"});
-    if(req.method === "POST"){
-        const {ids , priority} = req.body;
-        if(!ids || !priority){
-            return res.status(400).json({message: "All fields are required"});
+function handler(req, res) {
+    if (req.method === "POST") {
+        let body = req.body;
+        if (typeof req.body === 'string') {
+            try {
+                body = JSON.parse(req.body);
+            } catch (e) {
+                return res.status(400).json({ message: "Invalid JSON" });
+            }
         }
-        if(ids.length===0){
-            return res.status(400).json({message: "Invalid ids"});
+
+        const { ids, priority } = body;
+
+        if (!ids || !priority) {
+            return res.status(400).json({ message: "All fields are required" });
         }
+        if (ids.length === 0) {
+            return res.status(400).json({ message: "Invalid ids" });
+        }
+
         const batches = [];
         const ingestion_id = generateIngestionId();
-        for (let i=0;i<ids.length;i+=3){
+        for (let i = 0; i < ids.length; i += 3) {
             const batch = {
                 batch_id: uuidv4(),
                 ids: ids.slice(i, i + 3),
                 status: "yet_to_start"
             };
             batches.push(batch);
-
             batchQueue.push({ ingestion_id, batch });
         }
+
         ingestionStore[ingestion_id] = {
             ingestion_id,
             priority,
@@ -69,20 +79,22 @@ function handler(req, res){
             batches
         };
 
-        return res.status(200).json({ingestion_id});
-    } 
-    else if(req.method === "GET"){
+        return res.status(200).json({ ingestion_id });
+    }
+
+    else if (req.method === "GET") {
         const ingestion_id = req.query.ingestion_id;
-        const ingestion = ingestionStore[ingestion_id]
         if (!ingestion_id || !ingestionStore[ingestion_id]) {
             return res.status(400).json({ message: "Missing or invalid ingestion_id" });
         }
 
-        return res.status(200).json(ingestion);
+        return res.status(200).json(ingestionStore[ingestion_id]);
+    }
 
-    } else{
-        res.status(405).json({message: `Unable to receive ${req.method} request`});
+    else {
+        res.status(405).json({ message: `Method ${req.method} Not Allowed` });
     }
 }
+
 
 export default handler;
