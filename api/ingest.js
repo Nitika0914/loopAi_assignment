@@ -41,6 +41,7 @@ setInterval(async () => {
 
 
 function handler(req, res){
+    res.status(200).json({messgae: "Everything is working fine"});
     if(req.method === "POST"){
         const {ids , priority} = req.body;
         if(!ids || !priority){
