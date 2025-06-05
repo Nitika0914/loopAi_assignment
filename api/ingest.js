@@ -8,29 +8,37 @@ let batchQueue = [];
 function fetchDataForId(id){
     return new Promise((resolve)=>{
         setTimeout(()=>{
-            resolve({id, data: "Processed"})
+            resolve({id, data: "Processed"});
         }, 100)
     })
 }
-setInterval(async ()=>{
-    if(batchQueue.length===0) return;
+setInterval(async () => {
+    if (batchQueue.length === 0) return;
+
     const next = batchQueue.shift();
-    const {ingestion_id, batch} = next;
-    batch.status = "triggered";
+    const { ingestion_id, batch } = next;
 
-    const promises = batch.ids.map(id => fetchDataForId(id));
-    await Promise.all(promises)
+    try {
+        batch.status = "triggered";
 
-    batch.status = "completed";
+        const promises = batch.ids.map(id => fetchDataForId(id));
+        await Promise.all(promises);
 
-    const allBatches = ingestionStore[ingestion_id].batches;
-    const statuses = allBatches.map(b => b.status);
-    if (statuses.every(s => s === "completed")) {
-        ingestionStore[ingestion_id].status = "completed";
-    } else if (statuses.some(s => s === "triggered" || s === "completed")) {
-        ingestionStore[ingestion_id].status = "triggered";
+        batch.status = "completed";
+
+        const allBatches = ingestionStore[ingestion_id].batches;
+        const statuses = allBatches.map(b => b.status);
+
+        if (statuses.every(s => s === "completed")) {
+            ingestionStore[ingestion_id].status = "completed";
+        } else if (statuses.some(s => s === "triggered" || s === "completed")) {
+            ingestionStore[ingestion_id].status = "triggered";
+        }
+    } catch (err) {
+        console.error("Error processing batch:", err);
     }
 }, 5000);
+
 
 function handler(req, res){
     if(req.method === "POST"){
@@ -65,9 +73,10 @@ function handler(req, res){
     else if(req.method === "GET"){
         const ingestion_id = req.query.ingestion_id;
         const ingestion = ingestionStore[ingestion_id]
-        if(!ingestion){
-            return res.status(400).json({message: "Missing ingestio id"});
+        if (!ingestion_id || !ingestionStore[ingestion_id]) {
+            return res.status(400).json({ message: "Missing or invalid ingestion_id" });
         }
+
         return res.status(200).json(ingestion);
 
     } else{
